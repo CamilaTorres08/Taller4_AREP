@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+
+    <head>
+        <meta charset="iso-utf-8" />
+        <link rel="stylesheet" href="../styles/style.css" />
+        <title>TaskManager</title>
+    </head>
+    <body>
+    <main>
+        <div class="task-form">
+            <div class="task-form-container">
+                <img src="../images/logo.png" alt="Logo de la app" class="logo">
+                <div class="form-group">
+                    <label for="taskTitle">Title</label>
+                    <input type="text" id="taskTitle" placeholder="Enter a title (no more than 20 characters)" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label for="taskDescription">Description</label>
+                    <textarea id="taskDescription" placeholder="Enter a description (no more than 30 characters)" maxlength="30"></textarea>
+                </div>
+                <button onclick="addTask()">Add</button>
+                <div id="task-information" class="hide"></div>
+            </div>
+        </div>
+        <div class="task-container">
+            <div class="task-search">
+                <input type="text" id="taskSearch" placeholder="Search tasks..." maxlength="20">
+                <button onclick="loadTasks()">Search</button>
+            </div>
+            <p>Filter: <span id="filter"></span></p>
+            <div id="task-container">
+            </div>
+        </div>
+    </main>
+    <script src="../scripts/script.js"></script>
+    </body>
+</html>
