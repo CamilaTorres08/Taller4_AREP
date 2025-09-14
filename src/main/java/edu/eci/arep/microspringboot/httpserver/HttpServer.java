@@ -14,13 +14,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import static edu.eci.arep.microspringboot.classes.TaskManager.getTaskManager;
 import static edu.eci.arep.microspringboot.helpers.ClassesConverter.findClasses;
@@ -31,6 +28,7 @@ public class HttpServer implements Runnable {
     final ThreadPoolExecutor executor;
     private ServerSocket serverSocket;
     static String dir;
+    static String pathBase;
     private final int port;
     private String classPath = "edu.eci.arep";
     Thread t;
@@ -279,32 +277,44 @@ public class HttpServer implements Runnable {
     /**
      *Configures the directory for serving static files.
      * If the directory does not exist, it will be created automatically.
-     * @param path the relative path where static files will be served from
+     * @param base the relative path where static files will be served from
      * @throws IOException if an error occurs while creating the directory
      * @throws IllegalArgumentException if the path is null, blank, not a directory, or not readable
      **/
-    public static void staticfiles(String path) {
+    public static void staticfiles(String base) {
         try {
-            if (path == null || path.isEmpty())
+            if (base == null || base.isBlank()) {
                 throw new IllegalArgumentException("Static Files: path cannot be null/blank");
-            String root = "src/main";
-            Path configured = Paths.get(root + path);
-
-            if (Files.exists(configured)) {
+            }
+            base = base.replaceFirst("^/+", "");
+            ClassLoader cl = Thread.currentThread().getContextClassLoader();
+            URL url = cl.getResource(base);
+            if (url == null) {
+                throw new IllegalArgumentException("No se encontró en el classpath: " + base);
+            }
+            URI uri = url.toURI();
+            if ("jar".equalsIgnoreCase(uri.getScheme())) {
+                dir = "classpath:/" + base;
+            }else {
+                Path configured = Paths.get(uri);
+                if (!Files.exists(configured)) {
+                    throw new IllegalArgumentException("staticfiles: no existe el directorio: " + configured);
+                }
                 if (!Files.isDirectory(configured)) {
                     throw new IllegalArgumentException("staticfiles: no es un directorio: " + configured);
                 }
                 if (!Files.isReadable(configured)) {
                     throw new IllegalArgumentException("staticfiles: directorio no legible: " + configured);
                 }
-            } else {
-                Files.createDirectories(configured);
+                dir = configured.toAbsolutePath().normalize().toString();
             }
-            dir = root + path;
+            if (!base.startsWith("/")) pathBase = "/" + base;
+            else pathBase = base;
         } catch (Exception e) {
             System.err.println("Could not create static files: " + e);
         }
     }
+
 
 
     /**
@@ -322,7 +332,9 @@ public class HttpServer implements Runnable {
         else if(path.endsWith("html")){
             fullPath += "/" + "pages" + path;
         }else {
-            fullPath += path;
+            String pathCompleted = path;
+            if(path.startsWith(pathBase)) pathCompleted = path.substring(pathBase.length());
+            fullPath += pathCompleted;
         }
         if(fullPath.endsWith("html") || fullPath.endsWith("css") || fullPath.endsWith("js")){
             return sendTextFile(fullPath);

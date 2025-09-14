@@ -22,7 +22,7 @@ public class HttpServerTests {
                 port,
                 Math.max(4, Runtime.getRuntime().availableProcessors() * 2),
                 200,
-                "/resources",
+                "static",
                 "edu.eci.arep.microspringboot"
         );
         serverThread = server.startAsync();
@@ -68,7 +68,7 @@ public class HttpServerTests {
      */
     @Test
     public void testGetCssFile() throws Exception {
-        HttpURLConnection getConnection = urlConnection.createGetConnection("/styles/style.css");
+        HttpURLConnection getConnection = urlConnection.createGetConnection("/static/styles/style.css");
         int responseCode = getConnection.getResponseCode();
         assertEquals("Should return 200 OK",200, responseCode);
         getConnection.disconnect();
@@ -78,7 +78,7 @@ public class HttpServerTests {
      */
     @Test
     public void testGetJsFile() throws Exception {
-        HttpURLConnection getConnection = urlConnection.createGetConnection("/scripts/script.js");
+        HttpURLConnection getConnection = urlConnection.createGetConnection("/static/scripts/script.js");
         int responseCode = getConnection.getResponseCode();
         assertEquals("Should return 200 OK",200, responseCode);
         getConnection.disconnect();

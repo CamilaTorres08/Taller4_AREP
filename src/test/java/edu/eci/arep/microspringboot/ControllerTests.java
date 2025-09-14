@@ -31,7 +31,7 @@ public class ControllerTests {
                 port,
                 Math.max(4, Runtime.getRuntime().availableProcessors() * 2),
                 200,
-                "/resources",
+                "static",
                 "edu.eci.arep.microspringboot"
         );
         serverThread = server.startAsync();

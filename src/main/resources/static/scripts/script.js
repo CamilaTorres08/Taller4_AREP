@@ -9,8 +9,7 @@ function loadTasks() {
         document.getElementById("filter").innerText = searchValue;
     }
     const value = document.getElementById("filter").innerText;
-    console.log("VALUE: ",value);
-    fetch("http://localhost:35000/task?name="+value,
+    fetch("/task?name="+value,
         {
             method: "GET"
         })
@@ -47,7 +46,7 @@ function addTask(){
         alert('The description is too long');
         return;
     }
-    fetch("http://localhost:35000/task",
+    fetch("/task",
         {
             headers: {
                 "Accept": "application/json",
@@ -61,7 +60,6 @@ function addTask(){
         })
         .then(res => res.json())
         .then(data => {
-            console.log(data)
             const element = document.getElementById("task-information");
             element.classList.remove("hide");
             element.classList.add("show");

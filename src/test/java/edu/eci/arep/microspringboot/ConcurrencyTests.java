@@ -27,7 +27,7 @@ public class ConcurrencyTests {
     public static void setUpServer() throws Exception {
         urlConnection = new URLConnection(port);
         server = new HttpServer(port, THREAD_POOL_SIZE, QUEUE_CAPACITY,
-                "/resources", "edu.eci.arep");
+                "static", "edu.eci.arep");
         serverThread = server.startAsync();
         waitForServerToStart(10000);
     }

@@ -1,18 +1,8 @@
-# Arquitecturas de Servidores de Aplicaciones, Meta protocolos de objetos, Patrón IoC, Reflexión
+# Taller de de modularización con virtualización e Introducción a Docker
 
 ## Introducción
 
-Este taller tiene como objetivo explorar las capacidades de **reflexión** en Java para la construcción de aplicaciones web. 
-A través de la API de Reflexión es posible leer y manipular los metadatos de las clases, 
-lo que nos permitirá utilizar dinámicamente la información de un **POJO (Plain Old Java Object)** como base para una aplicación.
 
-El propósito es desarrollar un servidor web en Java, similar en concepto a servidores como Apache, capáz de:
-
-* Servir archivos estáticos **HTML**,**CSS**,**JavaScript** e **Imágenes**
-* Proveer un framework de Inversión de Control (IoC) que permita construir aplicaciones web a partir de POJOs.
-
-Al finalizar, se contará con un prototipo mínimo que demuestra cómo Java, mediante sus capacidades reflexivas, puede cargar un bean
-(POJO) y derivar una aplicación web a partir de él.
 
 
 ## Arquitectura
