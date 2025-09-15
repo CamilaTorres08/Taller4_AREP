@@ -345,7 +345,7 @@ Antes de comenzar, es necesario tener instalado lo siguiente en el entorno:
 ## Pruebas
 ### Pruebas manuales
 
-
+https://github.com/user-attachments/assets/786bea74-c67b-47cd-aaaa-d7db25b26bb5
 
 ### Pruebas automáticas
 Se incluye pruebas con JUnit para validar el funcionamiento del framework.
