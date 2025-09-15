@@ -32,7 +32,19 @@ public class HttpServer implements Runnable {
     private final int port;
     private String classPath = "edu.eci.arep";
     Thread t;
-
+    /**
+     * Constructs an {@code HttpServer} instance with the given configuration.
+     * This constructor initializes the server environment by setting up
+     * static file handling, configuring the classpath for dynamic service
+     * loading, and preloading available services. It also creates a fixed-size
+     * thread pool executor to handle client requests concurrently.
+     *
+     * @param portServer the port number on which the server will listen
+     * @param nThreads   the number of worker threads in the thread pool
+     * @param capacity   the maximum number of pending tasks allowed in the queue
+     * @param filesPath  the base path for serving static files
+     * @param classPath  the classpath used for discovering and loading services
+     */
     public HttpServer(int portServer,int nThreads, int capacity, String filesPath, String classPath) {
         this.port = portServer;
         staticfiles(filesPath);
@@ -55,6 +67,15 @@ public class HttpServer implements Runnable {
             new ThreadPoolExecutor.CallerRunsPolicy()
         );
     }
+    /**
+     * Starts the server asynchronously in a new thread if it is not already running.
+     * This method checks the {@code running} flag to determine if the server
+     * is already active. If the server is already running, it logs a message
+     * and returns the existing thread. Otherwise, it creates a new thread
+     * with the name "http-aceptor", starts it, and returns the created thread.
+     * @return the thread running the server, either the existing one if already running,
+     *         or a newly created and started thread
+     */
     public Thread startAsync() {
         if (running.get()) {
             System.out.println("Servidor ya está corriendo");
@@ -64,7 +85,12 @@ public class HttpServer implements Runnable {
         t.start();
         return t;
     }
-
+    /**
+     * Entry point for the server thread execution.
+     * This method initializes a {@link ServerSocket} on the configured port
+     * and starts listening for incoming client connections. If the server
+     * is already running, the method exits immediately.
+     */
     @Override
     public void run() {
         if (!running.compareAndSet(false, true)) return;
@@ -98,6 +124,11 @@ public class HttpServer implements Runnable {
             System.out.println("Server stopped");
         }
     }
+    /**
+     * Stops the server gracefully.
+     * This method attempts to change the server's state from running
+     * to stopped. If the server was not running, the method exits immediately.
+     */
     public void stop(){
         if(!running.compareAndSet(true, false)) return;
         try {
@@ -105,6 +136,18 @@ public class HttpServer implements Runnable {
         } catch (IOException ignored) {}
         shutdown();
     }
+    /**
+     * Shuts down the executor service gracefully.
+     * This method initiates an orderly shutdown of the executor,
+     * allowing currently running tasks to complete. It then waits
+     * up to 30 seconds for termination. If tasks do not finish within
+     * this period, it forces an immediate shutdown by canceling
+     * running tasks and discarding queued ones, waiting an additional
+     * 5 seconds for termination.
+     * If the current thread is interrupted while waiting, the executor
+     * is also shut down immediately, and the interrupt status of the
+     * thread is preserved.
+     */
     private void shutdown(){
         executor.shutdown();
         try{
@@ -118,6 +161,13 @@ public class HttpServer implements Runnable {
             Thread.currentThread().interrupt();
         }
     }
+    /**
+     * Preloads and initializes services by scanning the configured classpath.
+     * This method attempts to discover all classes available in the specified
+     * {@code classPath} and load them as services. For each class found,
+     * the {@link #loadServices(Class)} method is invoked to handle the
+     * initialization or registration logic.
+     */
     public void preloadServices(){
         try {
             Set<Class<?>> classes = findClasses(classPath);
@@ -314,8 +364,6 @@ public class HttpServer implements Runnable {
             System.err.println("Could not create static files: " + e);
         }
     }
-
-
 
     /**
      * Manage disk files.
