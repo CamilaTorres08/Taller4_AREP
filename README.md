@@ -2,16 +2,38 @@
 
 ## Introducción
 
+El presente taller tiene como propósito integrar y desplegar, dentro de un contenedor **Docker**, 
+el microframework web desarrollado en trabajos previos. 
+Dicho microframework ha sido mejorado para soportar múltiples solicitudes concurrentes mediante el uso de hilos, 
+así como para permitir un apagado controlado y “elegante”.
 
+Como parte del ejercicio, se construye una **imagen Docker** que encapsula la aplicación 
+y se publica en un repositorio en **Docker Hub**, con el fin de facilitar su distribución y reutilización. 
+Finalmente, se configura una máquina virtual en **AWS**, en la cual se instala Docker y se despliega el contenedor, 
+validando así el funcionamiento de la aplicación en un entorno de nube.
 
 
 ## Arquitectura
-La siguiente figura ilustra los componentes principales, sus responsabilidades y las relaciones entre ellos.
+
+### Diagrama de clases
+
+El siguiente diagrama de clases representa la estructura interna del microframework 
+web. En él se ilustran las clases principales que lo componen, 
+sus atributos y métodos más relevantes, 
+así como las relaciones que existen entre ellas.
+
+<img src="readmeImages/DiagramaClases.png">
+
+### Diagrama de componentes 
+
+La siguiente figura ilustra los componentes principales de la aplicación, 
+sus responsabilidades y las relaciones entre ellos.
 
 <img src="readmeImages/componentes.png">
 
 ### HttpRequest
-Encapsula la información de la solicitud HTTP recibida. Gestiona la URI y los parámetros de consulta (`query params`).
+Encapsula la información de la solicitud HTTP recibida. Gestiona la URI y los parámetros de consulta 
+que vienen anotadas `@RequestParam`.
 ### HttpResponse
 Modela la respuesta HTTP que será enviada al cliente, se encarga de tener el estado y código de respuesta HTTP (`200 OK`,`400 Bad Request`,etc.),
 los encabezados (`Content-Type`,`Content-Lenght`, etc) y el cuerpo a enviar.
@@ -19,98 +41,204 @@ los encabezados (`Content-Type`,`Content-Lenght`, etc) y el cuerpo a enviar.
 Es el núcleo del framework, se encarga principalmente de:
 
 * Configurar el classpath mediante `setClassPath("ruta.del.paquete")`.
-* Detectar automaticamente las clases anotadas con `@RestController` y, a partir de ellas, registrar
-los valores de `@GetMapping` y `@RequestMapping`
-
-  <img src="readmeImages/services.png">
-
-  La anterior imagen muestra cómo el servidor almacena internamente las anotaciones:
-
-  `Map<String,Map<String, Method>> services = new HashMap<>();`
-
-  Donde la clave externa corresponde al valor de la anotación `@RequestMapping` y el valor es otro mapa que asocia
-  el valor de la anotación `@GetMapping` con el método `Method` que debe ejecutarse cuando reciba la solicitud
-  correspondiente.
+* Detectar automáticamente las clases anotadas con `@RestController` y, a partir de ellas, registrar
+los métodos que tienen la anotación `@GetMapping` y almacenar la ruta de la anotación
+`@RequestMapping`.
 
 * Servir archivos estáticos (HTML, CSS, JS, imágenes) desde un directorio configurado mediante `staticfiles(path)`.
 
 * Procesar las solicitudes HTTP entrantes y construir la respuesta final.
 
-* Gestionar errores comunes (400,404, 500, 405) y generar respuestas acordes.
+* Controlar errores comunes (400,404, 500, 405) y generar respuestas acordes.
+
+* Gestionar múltiples solicitudes de manera simultánea utilizando hilos, permitiendo iniciar la atención concurrente de clientes 
+y ofrecer un apagado controlado del servidor.
 
 ## Funcionamiento
 
-El framework permite definir **endpoints HTTP** (actualmente solo para solicitudes **GET**)
-utilizando anotaciones que definen:
-* La clase controladora `@RestController`
-* La ruta base `@RequestMapping`
-* El método de acceso `@GetMapping`
-* Los parámetros de entrada `@RequestParam`
+### Concurrencia
 
-De esta manera, se puede crear servicios web a partir de POJOs.
+El servidor HTTP fue mejorado para soportar múltiples solicitudes de manera simultánea, implementando la interfaz `Runnable`.
 
-### Definir un controlador 
-Todo servicio debe estar contenido dentro de una clase anotada con
-`@RestController` para indicar que la clase puede recibir y procesar solicitudes HTTP:
+Para garantizar un control seguro del estado y evitar condiciones de carrera, 
+se utilizaron tipos atómicos como `AtomicBoolean`, 
+los cuales permiten realizar operaciones indivisibles sobre valores compartidos 
+sin necesidad de bloqueos explícitos.
+
+Además, se incorporó un `ThreadPoolExecutor` configurado de la siguiente manera:
 
 ```
-@RestController
-public class GreetingController {}
-```
-
-### Configurar la ruta base  
-Si se desea que el servicio sea accesible desde una ruta en específico, se usa la anotación 
-`@RequestMapping("ruta")`:
-
-```
-@RestController
-@RequestMapping("/greeting")
-public class GreetingController {}
-```
-También es posible definir rutas más largas y jerárquicas:
-
-```
-@RestController
-@RequestMapping("api/v1/greeting")
-public class GreetingController {}
-```
-
-*Nota: Si no se define la anotación `@RequestMapping` o se deja sin valor, la ruta base
-asignada por defecto será `/app`. Para evitar conflictos entre controladores, se recomienda
-que cada clase `@RestController` defina su propia ruta base.*
-
-### Definir métodos GET 
-Cada endpoint **GET** se debe definir con la anotación `@GetMapping["ruta"]`:
+this.executor = new ThreadPoolExecutor(
+            nThreads, nThreads,
+            0L, TimeUnit.MILLISECONDS,
+            new ArrayBlockingQueue<>(capacity),
+            new ThreadFactory() {
+                private final ThreadFactory delegate = Executors.defaultThreadFactory();
+                private int idx = 0;
+                @Override public Thread newThread(Runnable r) {
+                    Thread t = delegate.newThread(r);
+                    t.setName("http-worker-" + (++idx));
+                    t.setDaemon(false);
+                    return t;
+                }
+            },
+            new ThreadPoolExecutor.CallerRunsPolicy()
+        );
 
 ```
-@GetMapping("/void")
-public static String defaultValue() {
-    return "Hello World!";
-}
+
+Este diseño proporciona un mecanismo eficiente para reutilizar hilos y manejar múltiples solicitudes sin la sobrecarga de crear un hilo nuevo por cada cliente.
+Los parámetros principales permiten ajustar el comportamiento del grupo de hilos:
+
+* corePoolSize y maximumPoolSize: número mínimo y máximo de hilos activos (en este caso se definen iguales para mantener un pool fijo).
+
+* keepAliveTime: tiempo de espera para hilos inactivos (0 en este caso, ya que los hilos se mantienen siempre activos).
+
+* workQueue (BlockingQueue): cola donde se almacenan las tareas pendientes hasta que un hilo esté disponible.
+
+* RejectedExecutionHandler: política aplicada cuando la cola está llena (en este caso, el hilo que envía la tarea la ejecuta directamente).
+
+#### Ciclo de vida del servidor
+
+El ciclo de vida del servidor se controla con los métodos `run()` y `stop()`.
+
+* El método `run()` inicializa el servidor, acepta conexiones entrantes y delega cada solicitud a un hilo del pool.
+
+* El método `stop()` detiene el socket de escucha y coordina un apagado controlado, asegurando que las tareas activas finalicen correctamente.
+
+### Docker
+
+Docker es una herramienta para empaquetar aplicaciones y sus dependencias
+en contenedores. 
+Permite crear, probar y desplegar aplicaciones rápidamente, 
+garantizando que el código funcione igual en el entorno local, 
+de pruebas o en la nube.
+
+Se construyó una imagen Docker a partir del microframework desarrollado previamente, 
+y a partir de dicha imagen se levantaron tres contenedores. 
+Posteriormente, la imagen fue publicada en un repositorio en Docker Hub.
+
+#### Pasos para crear una imagen Docker y desplegarla
+
+1. Compilar la aplicación
+
 ```
-*Nota: es obligatorio que se coloque esta anotación; sin embargo, se puede dejar el valor vacío, este asignará `/`*
-
-### Recibir parámetros
-Los métodos pueden aceptar parámetros en la **URL** mediante la anotación `@RequestParam`.
-
-Debe especificarse:
-* **value**: nombre del parámetro a recibir
-* **defaultValue**: valor por defecto en caso de no recibir el parámetro
+mvn clean package
+```
+2. Asegurarse que la aplicación esté ejecutando 
 
 ```
-@GetMapping("/greeting")
-public static String greeting(@RequestParam(value = "name", defaultValue = "World") String name) {
-return "Hello " + name;
-}
+java -cp "target/classes;target/dependency/*" edu.eci.arep.microspringboot.MicroSpringBoot
 ```
-*Nota: Actualmente, solo se soportan parámetros de tipo **String***
 
-### Tipos de respuesta soportados
+3. Crear archivo `Dockerfile` en la raíz del proyecto
 
-El servidor, basándose en lo implementado en el [taller 2](https://github.com/CamilaTorres08/Taller2_AREP.git), es capaz 
-de devolver `String`, `List<>`  y `Objetos personalizados` (instancias de clases definidas por el usuario; 
-por ejemplo, las ubicadas en la carpeta `classes`) o vacío `void` en dicho caso el código de respuesta
-será *204 No Content*.
+```
+FROM openjdk:21
+
+WORKDIR /usrapp/bin
+
+ENV PORT=6000
+
+COPY /target/classes /usrapp/bin/classes
+COPY /target/dependency /usrapp/bin/dependency
+
+CMD ["java","-cp","./classes:./dependency/*","edu.eci.arep.microspringboot.MicroSpringBoot"]
+```
+
+4. Construir la imagen
+
+```
+docker build --tag dockertallerarep .
+```
+
+5. Ejecutar contenedores a partir de la imagen
+
+```
+docker run -d -p 34000:6000 --name arepdockercontainer dockertallerarep
+docker run -d -p 34001:6000 --name arepdockercontainer2 dockertallerarep
+docker run -d -p 34002:6000 --name arepdockercontainer3 dockertallerarep  
+```
+
+Este comando mapea el puerto 6000 del contenedor (donde escucha el microframework) al puerto especificado del host,
+en este caso 34000, 34001, 34002.
+
+6. Verificar que los contenedores estén en ejecución
+
+```
+docker ps
+```
+
+7. Acceder al browser por el puerto de los contenedores y asegurarse que la
+aplicación está funcionando
+
+`http://localhost:34000/`, `http://localhost:34001/` , `http://localhost:34002/`
+
+8. Crear el archivo `docker-compose.yml` en la raíz del proyecto para generar automáticamente una configuración docker
+
+```
+version: '2'
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: web
+    ports:
+      - "8087:6000"
+  db:
+    image: mongo:3.6.1
+    container_name: db
+    volumes:
+      - mongodb:/data/db
+      - mongodb_config:/data/configdb
+    ports:
+      - 27017:27017
+    command: mongod
+
+volumes:
+  mongodb:
+  mongodb_config:
+```
+
+Con este archivo de ejemplo se definen dos servicios:
+
+* web: construye la aplicación desde el Dockerfile y expone el puerto interno 6000 en el 8087 del host.
+
+* db: levanta un contenedor de MongoDB, con volúmenes para persistencia de datos y el puerto estándar 27017.
+
+9. Ejecutar el docker compose
+
+```
+docker-compose up -d 
+```
+
+10. Verificar que se crearon los servicios con `docker ps`
+11. Crear repositorio en `docker hub` y crear una referencia a la imagen con el nombre del repositorio a donde se
+va a subir
+
+```
+docker tag dockertallerarep camilatorres0812/taller4_arep
+```
+
+12. Verificar la nueva referencia a la imagen
+
+```
+docker images
+```
+
+13. Autenticarse con una cuenta Docker 
+
+```
+docker login
+```
+
+14. Subir la imagen al repositorio
+
+```
+docker push camilatorres0812/taller4_arep:latest
+```
+<img src="readmeImages/img.png">
 
 ## Primeros Pasos
 
