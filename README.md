@@ -174,6 +174,8 @@ aplicación está funcionando
 
 `http://localhost:34000/`, `http://localhost:34001/` , `http://localhost:34002/`
 
+<img src="readmeImages/img_1.png">
+
 8. Crear el archivo `docker-compose.yml` en la raíz del proyecto para generar automáticamente una configuración docker
 
 ```
@@ -240,6 +242,28 @@ docker push camilatorres0812/taller4_arep:latest
 ```
 <img src="readmeImages/img.png">
 
+### Instancia EC2 en AWS
+
+La siguiente imagen ilustra el despliegue del microframework en AWS utilizando Docker:
+
+<img src="readmeImages/despliegue.png">
+
+Para el acceso externo, se creó una instancia EC2 en AWS y se configuraron las reglas de entrada del Security Group, habilitando el puerto `40000`:
+
+<img src="readmeImages/img_2.png">
+
+Una vez definida la regla, se realiza el mapeo del puerto 40000 del host hacia el puerto 6000 del contenedor, donde la aplicación escucha.
+
+Este mapeo se realizó ejecutando el siguiente comando en la máquina EC2:
+
+```
+docker run -d -p 40000:6000 --name firstdockerimageaws camilatorres0812/taller4_arep
+```
+
+Accedemos desde el browser especificando la utilizando la URL pública de la instancia EC2:
+
+<img src="readmeImages/img_3.png">
+
 ## Primeros Pasos
 
 ### Prerrequisitos
@@ -276,6 +300,16 @@ Antes de comenzar, es necesario tener instalado lo siguiente en el entorno:
     ```
     git -version
     ```
+  
+* **Docker Desktop**
+
+  Crear, ejecutar y administrar contenedores - [Descargar Docker](https://docs.docker.com/get-started/get-docker/)
+
+    Verifica la instalación
+
+    ```
+    docker -version
+    ```
 
 ### Instalación
 
@@ -289,8 +323,15 @@ Antes de comenzar, es necesario tener instalado lo siguiente en el entorno:
     mvn clean install
     ```
 3. Ejecutar el servidor
+
+    3.1. 
+
     ```
     mvn exec:java
+    ```
+    3.2.
+    ```
+    java -cp "target/classes;target/dependency/*" edu.eci.arep.microspringboot.MicroSpringBoot
     ```
    O directamente en la IDE dando clic en *Run* sobre el archivo `MicroSpringBoot`
   
@@ -298,68 +339,12 @@ Antes de comenzar, es necesario tener instalado lo siguiente en el entorno:
     ```
     http://localhost:35000
     ```
+   
+5. Si prefiere usar un contenedor, siga las instrucciones indicadas en la sección de [funcionamiento](#docker)
 
 ## Pruebas
 ### Pruebas manuales
-Para la ejecución de estas pruebas, se definieron controllers cuya implementación está en la carpeta `examples`
 
-#### GreetingController
-`http://localhost:35000/app/greeting`
-
-<img src="readmeImages/img_5.png">
-
-`http://localhost:35000/app/greeting?name=Camila`
-
-<img src="readmeImages/img_1.png">
-
-`http://localhost:35000/app/void`
-
-<img src="readmeImages/img_2.png">
-
-`http://localhost:35000/app/params`
-
-<img src="readmeImages/img_3.png">
-
-`http://localhost:35000/app/params?name=Juan&gender=male&age=20`
-
-<img src="readmeImages/img_6.png">
-
-`http://localhost:35000/app/body`
-
-<img src="readmeImages/img_4.png">
-
-#### TaskController
-
-Al usar el buscador de la interfáz se realiza una petición a `http://localhost:35000/task?name=[value]`
-
-<img src="readmeImages/img_7.png">
-
-`http://localhost:35000/task`
-
-<img src="readmeImages/img_8.png">
-
-#### CalculatorController
-
-`http://localhost:35000/v1/calculate/maths`
-
-<img src="readmeImages/img_9.png">
-
-`http://localhost:35000/v1/calculate/maths?operation=*&a=4&b=20`
-
-<img src="readmeImages/img_10.png">
-
-`http://localhost:35000/v1/calculate/maths/square?number=5`
-
-<img src="readmeImages/img_11.png">
-
-#### Prueba de error
-Se validan los casos en los que el servidor debe responder con error al no encontrar la ruta solicitada:
-* **Ruta base inexistente**: solicitar un recurso con una ruta base no implementada
-  
-  <img src="readmeImages/img_14.png">
-* **Ruta específica no válida**: se accede a una ruta base válida, pero con una ruta específica (método GET) que no existe dentro del controlador
-  
-  <img src="readmeImages/img_15.png">
 
 ### Pruebas automáticas
 Se incluye pruebas con JUnit para validar el funcionamiento del framework.
@@ -369,6 +354,7 @@ Los archivos de pruebas se encuentran en:
 
 `src/test/java/edu/eci/arep/microspringboot/ControllerTests.java`
 
+`src/test/java/edu/eci/arep/microspringboot/ConcurrencyTests.java`
 
 #### Ejecución de pruebas
 
@@ -380,27 +366,48 @@ Los archivos de pruebas se encuentran en:
     ```
 * **Usando la IDE**
     
-    Abra los archivos `HttpServerTests` y `ControllerTests` y ejecute directamente las pruebas con el botón *Run Test*
+    Abra los archivos `HttpServerTests`, `ControllerTests` y `ConcurrencyTests` y ejecute directamente las pruebas con el botón *Run Test*
 
 #### Verificación
-Estas pruebas permiten comprobar que:
-* El servidor carga y sirve correctamente archivos estáticos.
-* Los controladores se detectan mediante las anotaciones correspondientes.
-* Las anotaciones `@RequestMapping`, `@GetMapping` y `@RequestParam` funcionan de manera adecuada.
-* Las rutas se asignan correctamente a los metodos del controlador.
-* Los parámetros reciben el valor esperado o el valor por defecto en caso de no ser proporcionados.
 
-Así, se agarantiza que el framework funcione de forma consistente y que las anotaciones sean interpretadas
-correctamente.
+Se añadieron pruebas de concurrencia además de las pruebas implementadas en trabajos anteriores,
+que validan la capacidad del servidor HTTP para manejar solicitudes concurrentes de manera segura y eficiente.
+Estas pruebas permiten comprobar:
 
-<img src="readmeImages/img_13.png">
+* Seguridad de hilos (Thread Safety): Sin condiciones de carrera o corrupción de datos
+* Gestión de recursos: Pool de hilos y cola de solicitudes
+* Rendimiento bajo carga: Tiempos de respuesta y tasas de éxito
+* Resilencia del sistema: Recuperación después de picos de tráfico
 
-<img src="readmeImages/img_12.png">
+Además, cubren aspectos críticos de un servidor HTTP concurrente:
+
+* Manejo básico de hilos
+* Procesamiento de lógica de negocio concurrente
+* Gestión de recursos bajo carga
+* Recuperación y resilencia
+* Comportamiento en condiciones límite
+* Validación de todos los endpoints REST
+
+<img src="readmeImages/img_4.png">
 
 
 ## Despliegue
 
-Este proyecto está previsto para ejecutarse localmente con fines de desarrollo y pruebas.
+### Ejecución local (desarrollo y pruebas)
+
+Se puede levantar el servidor directamente con Maven o Java, como se describe en la sección de [Instalación](#instalación).
+Esto permite probar la aplicación en `http://localhost:35000`.
+
+### Despliegue con Docker
+
+Se construyó una imagen Docker que empaqueta el microframework con todas sus dependencias.
+La imagen se publica en Docker Hub y se puede ejecutar con:
+
+```
+docker run -d -p 42000:6000 --name [container] camilatorres0812/taller4_arep
+```
+
+Esto expone la aplicación en `http://localhost:42000`
 
 ## Tecnologías utilizadas
 
