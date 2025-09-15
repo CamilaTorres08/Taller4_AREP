@@ -260,7 +260,7 @@ Este mapeo se realizó ejecutando el siguiente comando en la máquina EC2:
 docker run -d -p 40000:6000 --name firstdockerimageaws camilatorres0812/taller4_arep
 ```
 
-Accedemos desde el browser especificando la utilizando la URL pública de la instancia EC2:
+Accedemos desde el browser utilizando la URL pública de la instancia EC2:
 
 <img src="readmeImages/img_3.png">
 
@@ -344,6 +344,7 @@ Antes de comenzar, es necesario tener instalado lo siguiente en el entorno:
 
 ## Pruebas
 ### Pruebas manuales
+
 
 
 ### Pruebas automáticas
